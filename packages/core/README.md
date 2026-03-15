@@ -1,6 +1,12 @@
 # adaptive-cards-mcp
 
-MCP server + npm library for AI-powered Adaptive Card generation, validation, and optimization.
+<p align="center">
+  <img src="media/hero.png" alt="adaptive-cards-mcp" width="700">
+</p>
+
+The world's first MCP server for Adaptive Cards — 7 tools, 21 patterns, 862 tests, 0 competitors.
+
+> **Blog:** [I Built an MCP Server That Makes AI 10x Better at Adaptive Cards](https://singhvikrant.substack.com/p/i-built-an-mcp-server-that-makes)
 
 > Part of the [Adaptive Cards MCP](https://github.com/VikrantSingh01/adaptive-cards-mcp) ecosystem.
 > Also available as a [VS Code extension](https://github.com/VikrantSingh01/adaptive-cards-ai-vscode) and [browser extension](https://github.com/VikrantSingh01/adaptive-cards-ai-designer).

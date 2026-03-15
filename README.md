@@ -3,8 +3,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![Adaptive Cards](https://img.shields.io/badge/Adaptive%20Cards-v1.6-blue.svg)](https://adaptivecards.io/)
+[![Tests](https://img.shields.io/badge/Tests-862%20passing-brightgreen.svg)]()
 
-AI-powered tool that converts any content into schema-validated [Adaptive Card](https://adaptivecards.io/) v1.6 JSON.
+<p align="center">
+  <img src="media/hero.png" alt="adaptive-cards-mcp — 7 tools, 21 patterns, 862 tests, 0 competitors" width="800">
+</p>
+
+The world's first MCP server for Adaptive Cards — **7 tools** that make any LLM 10x better at card generation. Zero competition.
+
+> **Blog:** [I Built an MCP Server That Makes AI 10x Better at Adaptive Cards](https://singhvikrant.substack.com/p/i-built-an-mcp-server-that-makes)
 
 Available as an **MCP server**, **npm library**, **VS Code extension**, and **browser extension** for the Adaptive Cards Designer.
 
