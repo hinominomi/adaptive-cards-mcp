@@ -11,10 +11,12 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
     },
     "./mcp": {
-      "import": "./dist/server.js"
+      "import": "./dist/server.js",
+      "require": "./dist/server.cjs"
     }
   },
   "scripts": {

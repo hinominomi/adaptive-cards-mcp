@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { registerGenerateCommand } from "./generate-command";
 import { CardPreviewPanel } from "./card-preview-panel";
+import { CardDesignerPanel } from "./card-designer-panel";
 import { AdaptiveCardCodeLensProvider } from "./codelens-provider";
 
 let diagnosticCollection: vscode.DiagnosticCollection;
@@ -127,6 +128,23 @@ export function activate(context: vscode.ExtensionContext) {
       } catch (e) {
         vscode.window.showErrorMessage("Error: " + (e instanceof Error ? e.message : e));
       }
+    })
+  );
+
+  // Designer command
+  context.subscriptions.push(
+    vscode.commands.registerCommand("adaptiveCards.designer", () => {
+      const editor = vscode.window.activeTextEditor;
+      let initialCard: Record<string, unknown> | undefined;
+      if (editor) {
+        try {
+          const parsed = JSON.parse(editor.document.getText());
+          if (parsed.type === "AdaptiveCard") {
+            initialCard = parsed;
+          }
+        } catch { /* ignore */ }
+      }
+      CardDesignerPanel.createOrShow(context.extensionUri, initialCard);
     })
   );
 

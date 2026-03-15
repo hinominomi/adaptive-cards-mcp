@@ -12,48 +12,122 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other", "Snippets"],
-  "keywords": ["adaptive-cards", "microsoft-teams", "card-generator", "ai", "copilot"],
-  "icon": "media/icon.png",
+  "categories": [
+    "Other",
+    "Snippets"
+  ],
+  "keywords": [
+    "adaptive-cards",
+    "microsoft-teams",
+    "card-generator",
+    "ai",
+    "copilot"
+  ],
   "activationEvents": [
     "onLanguage:json",
     "workspaceContains:**/*.card.json"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "commands": [
-      { "command": "adaptiveCards.generate", "title": "Adaptive Cards: Generate Card" },
-      { "command": "adaptiveCards.validate", "title": "Adaptive Cards: Validate Card" },
-      { "command": "adaptiveCards.preview", "title": "Adaptive Cards: Preview Card" },
-      { "command": "adaptiveCards.dataToCard", "title": "Adaptive Cards: Convert Data to Card" },
-      { "command": "adaptiveCards.optimize", "title": "Adaptive Cards: Optimize Card" }
+      {
+        "command": "adaptiveCards.generate",
+        "title": "Adaptive Cards: Generate Card"
+      },
+      {
+        "command": "adaptiveCards.validate",
+        "title": "Adaptive Cards: Validate Card"
+      },
+      {
+        "command": "adaptiveCards.preview",
+        "title": "Adaptive Cards: Preview Card"
+      },
+      {
+        "command": "adaptiveCards.dataToCard",
+        "title": "Adaptive Cards: Convert Data to Card"
+      },
+      {
+        "command": "adaptiveCards.optimize",
+        "title": "Adaptive Cards: Optimize Card"
+      },
+      {
+        "command": "adaptiveCards.designer",
+        "title": "Adaptive Cards: Open Designer"
+      }
     ],
     "keybindings": [
-      { "command": "adaptiveCards.generate", "key": "ctrl+shift+a", "mac": "cmd+shift+a" }
+      {
+        "command": "adaptiveCards.generate",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a"
+      }
     ],
     "menus": {
       "editor/context": [
-        { "command": "adaptiveCards.generate", "when": "editorHasSelection", "group": "adaptiveCards" },
-        { "command": "adaptiveCards.dataToCard", "when": "editorHasSelection", "group": "adaptiveCards" }
+        {
+          "command": "adaptiveCards.generate",
+          "when": "editorHasSelection",
+          "group": "adaptiveCards"
+        },
+        {
+          "command": "adaptiveCards.dataToCard",
+          "when": "editorHasSelection",
+          "group": "adaptiveCards"
+        }
       ]
     },
     "snippets": [
-      { "language": "json", "path": "./snippets/adaptive-cards.json" }
-    ]
+      {
+        "language": "json",
+        "path": "./snippets/adaptive-cards.json"
+      }
+    ],
+    "configuration": {
+      "title": "Adaptive Cards AI Builder",
+      "properties": {
+        "adaptiveCards.aiProvider": {
+          "type": "string",
+          "default": "none",
+          "enum": [
+            "none",
+            "copilot",
+            "anthropic",
+            "openai"
+          ],
+          "enumDescriptions": [
+            "Fast deterministic pattern matching (no AI, no API key needed)",
+            "GitHub Copilot (requires Copilot subscription)",
+            "Anthropic Claude (requires ANTHROPIC_API_KEY)",
+            "OpenAI GPT (requires OPENAI_API_KEY)"
+          ],
+          "description": "AI provider for card generation. 'none' uses fast pattern matching."
+        },
+        "adaptiveCards.anthropicApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Anthropic API key for Claude-powered generation (only used when aiProvider is 'anthropic')"
+        },
+        "adaptiveCards.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API key for GPT-powered generation (only used when aiProvider is 'openai')"
+        }
+      }
+    }
   },
   "scripts": {
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "package": "vsce package",
+    "compile": "npm run esbuild",
+    "esbuild": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "watch": "npm run esbuild -- --watch",
+    "package": "npm run esbuild -- --minify && vsce package --allow-missing-repository",
     "lint": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
     "@types/node": "^22.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.27.4",
     "typescript": "^5.7.0",
-    "@vscode/vsce": "^3.0.0"
-  },
-  "dependencies": {
-    "adaptive-cards-ai-builder": "^1.0.0"
+    "adaptive-cards-ai-builder": "file:../adaptive-cards-ai-builder/packages/core"
   }
 }

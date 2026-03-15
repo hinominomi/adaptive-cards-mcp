@@ -6,7 +6,7 @@ export default defineConfig({
     index: "src/index.ts",
     server: "src/server.ts",
   },
-  format: ["esm"],
+  format: ["esm", "cjs"],
   target: "node20",
   sourcemap: true,
   clean: true,
