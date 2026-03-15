@@ -6,6 +6,46 @@
   "use strict";
   if (document.getElementById("ac-ai-builder-btn")) return;
 
+  // ─── Page-level bridge for Monaco access (content scripts run in isolated world) ─
+  const bridgeScript = document.createElement('script');
+  bridgeScript.textContent = `
+    window.addEventListener('message', function(e) {
+      if (e.data && e.data.source === 'ac-ai-builder') {
+        if (e.data.action === 'getCard') {
+          let cardJson = null;
+          if (window.monaco) {
+            const models = window.monaco.editor.getModels();
+            for (const model of models) {
+              try {
+                const parsed = JSON.parse(model.getValue());
+                if (parsed.type === 'AdaptiveCard') { cardJson = model.getValue(); break; }
+              } catch(e) {}
+            }
+          }
+          window.postMessage({ source: 'ac-ai-builder-response', action: 'getCard', data: cardJson }, '*');
+        } else if (e.data.action === 'setCard') {
+          if (window.monaco) {
+            const models = window.monaco.editor.getModels();
+            let found = false;
+            for (const model of models) {
+              try {
+                const parsed = JSON.parse(model.getValue());
+                if (parsed.type === 'AdaptiveCard') { model.setValue(e.data.data); found = true; break; }
+              } catch(e) {}
+            }
+            // If no AC model found, set first model
+            if (!found && models.length > 0) {
+              try { JSON.parse(models[0].getValue()); models[0].setValue(e.data.data); } catch(e) {}
+            }
+          }
+          window.postMessage({ source: 'ac-ai-builder-response', action: 'setCard', success: true }, '*');
+        }
+      }
+    });
+  `;
+  document.documentElement.appendChild(bridgeScript);
+  bridgeScript.remove();
+
   // ─── Lightweight Card Generator (pattern-matching, no LLM) ──────────────────
 
   const PATTERNS = {
@@ -13,6 +53,7 @@
       keywords: ["notify", "notification", "alert", "message", "announce", "deploy", "build"],
       build(desc, host) {
         return {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
           type: "AdaptiveCard", version: "1.6",
           body: [
             { type: "TextBlock", text: extractTitle(desc), size: "medium", weight: "bolder", wrap: true, style: "heading" },
@@ -28,6 +69,7 @@
       keywords: ["approve", "approval", "reject", "request", "authorize", "expense", "purchase"],
       build(desc, host) {
         return {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
           type: "AdaptiveCard", version: "1.6",
           body: [
             { type: "Container", style: "emphasis", bleed: true, items: [
@@ -75,6 +117,7 @@
           body.push({ type: "Input.Text", id: "details", label: "Details", isMultiline: true, placeholder: "Enter details..." });
         }
         return {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
           type: "AdaptiveCard", version: "1.6", body,
           actions: [{ type: "Action.Execute", title: "Submit", style: "positive", verb: "submit" }]
         };
@@ -84,6 +127,7 @@
       keywords: ["table", "data", "rows", "columns", "grid", "spreadsheet", "tabular", "list"],
       build(desc, host) {
         return {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
           type: "AdaptiveCard", version: "1.6",
           body: [
             { type: "TextBlock", text: extractTitle(desc), size: "medium", weight: "bolder", wrap: true, style: "heading" },
@@ -110,6 +154,7 @@
       keywords: ["detail", "info", "summary", "status", "properties", "metadata", "facts", "key-value"],
       build(desc, host) {
         return {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
           type: "AdaptiveCard", version: "1.6",
           body: [
             { type: "TextBlock", text: extractTitle(desc), size: "medium", weight: "bolder", wrap: true, style: "heading" },
@@ -127,6 +172,7 @@
       keywords: ["dashboard", "metrics", "kpi", "overview", "stats", "analytics"],
       build(desc, host) {
         return {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
           type: "AdaptiveCard", version: "1.6",
           body: [
             { type: "TextBlock", text: extractTitle(desc), size: "medium", weight: "bolder", wrap: true, style: "heading" },
@@ -152,6 +198,7 @@
       keywords: ["profile", "person", "contact", "user", "member", "employee"],
       build(desc, host) {
         return {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
           type: "AdaptiveCard", version: "1.6",
           body: [
             { type: "ColumnSet", columns: [
@@ -208,17 +255,25 @@
     if (card.type !== "AdaptiveCard") errors.push({ severity: "error", message: 'Missing or invalid "type": must be "AdaptiveCard"' });
     if (!card.version) errors.push({ severity: "error", message: 'Missing "version" property' });
     if (!card.body || !Array.isArray(card.body)) errors.push({ severity: "error", message: 'Missing or invalid "body" array' });
-    if (card.body) {
-      card.body.forEach((el, i) => {
-        if (!el.type) errors.push({ severity: "error", message: `body[${i}]: Missing "type" property` });
-        if (el.type === "Image" && !el.url) errors.push({ severity: "error", message: `body[${i}]: Image missing "url"` });
-        if (el.type === "Image" && !el.altText) errors.push({ severity: "warning", message: `body[${i}]: Image missing "altText" (accessibility)` });
-        if (el.type === "TextBlock" && !el.text) errors.push({ severity: "error", message: `body[${i}]: TextBlock missing "text"` });
-        if (el.type === "TextBlock" && el.wrap !== true) errors.push({ severity: "warning", message: `body[${i}]: TextBlock should have "wrap: true"` });
-        if (el.type && el.type.startsWith("Input.") && !el.label) errors.push({ severity: "warning", message: `body[${i}]: ${el.type} missing "label" (accessibility)` });
-        if (el.type && el.type.startsWith("Input.") && !el.id) errors.push({ severity: "error", message: `body[${i}]: ${el.type} missing "id"` });
+    function validateElements(elements, path) {
+      if (!Array.isArray(elements)) return;
+      elements.forEach((el, i) => {
+        const p = `${path}[${i}]`;
+        if (!el || typeof el !== "object") return;
+        if (!el.type) errors.push({ severity: "error", message: `${p}: Missing "type" property` });
+        if (el.type === "Image" && !el.url) errors.push({ severity: "error", message: `${p}: Image missing "url"` });
+        if (el.type === "Image" && !el.altText) errors.push({ severity: "warning", message: `${p}: Image missing "altText" (accessibility)` });
+        if (el.type === "TextBlock" && !el.text) errors.push({ severity: "error", message: `${p}: TextBlock missing "text"` });
+        if (el.type === "TextBlock" && el.wrap !== true) errors.push({ severity: "warning", message: `${p}: TextBlock should have "wrap: true"` });
+        if (el.type && el.type.startsWith("Input.") && !el.label) errors.push({ severity: "warning", message: `${p}: ${el.type} missing "label" (accessibility)` });
+        if (el.type && el.type.startsWith("Input.") && !el.id) errors.push({ severity: "error", message: `${p}: ${el.type} missing "id"` });
+        // Recurse into nested elements
+        if (el.items) validateElements(el.items, `${p}.items`);
+        if (el.columns) el.columns.forEach((col, ci) => { if (col.items) validateElements(col.items, `${p}.columns[${ci}].items`); });
+        if (el.rows) el.rows.forEach((row, ri) => { if (row.cells) row.cells.forEach((cell, ci) => { if (cell.items) validateElements(cell.items, `${p}.rows[${ri}].cells[${ci}].items`); }); });
       });
     }
+    if (card.body) validateElements(card.body, "body");
     if (card.actions) {
       card.actions.forEach((act, i) => {
         if (!act.title) errors.push({ severity: "warning", message: `actions[${i}]: Action missing "title"` });
@@ -231,70 +286,32 @@
   // ─── Designer Integration ─────────────────────────────────────────────────────
 
   function getDesignerCardJson() {
-    // Try Monaco editor first
-    const monacoEditors = document.querySelectorAll(".monaco-editor");
-    if (monacoEditors.length > 0 && window.monaco) {
-      const models = window.monaco.editor.getModels();
-      for (const model of models) {
-        const text = model.getValue();
-        try {
-          const parsed = JSON.parse(text);
-          if (parsed.type === "AdaptiveCard") return text;
-        } catch (e) { /* skip */ }
-      }
-    }
-    // Try textarea fallback
-    const textareas = document.querySelectorAll("textarea");
-    for (const ta of textareas) {
-      try {
-        const parsed = JSON.parse(ta.value);
-        if (parsed.type === "AdaptiveCard") return ta.value;
-      } catch (e) { /* skip */ }
-    }
-    // Try CodeMirror
-    const cmEls = document.querySelectorAll(".CodeMirror");
-    for (const cmEl of cmEls) {
-      if (cmEl.CodeMirror) {
-        try {
-          const parsed = JSON.parse(cmEl.CodeMirror.getValue());
-          if (parsed.type === "AdaptiveCard") return cmEl.CodeMirror.getValue();
-        } catch (e) { /* skip */ }
-      }
-    }
-    return null;
+    return new Promise((resolve) => {
+      const handler = (e) => {
+        if (e.data && e.data.source === 'ac-ai-builder-response' && e.data.action === 'getCard') {
+          window.removeEventListener('message', handler);
+          resolve(e.data.data);
+        }
+      };
+      window.addEventListener('message', handler);
+      window.postMessage({ source: 'ac-ai-builder', action: 'getCard' }, '*');
+      // Timeout fallback
+      setTimeout(() => { window.removeEventListener('message', handler); resolve(null); }, 1000);
+    });
   }
 
   function setDesignerCardJson(jsonStr) {
-    // Try Monaco first
-    if (window.monaco) {
-      const models = window.monaco.editor.getModels();
-      for (const model of models) {
-        try {
-          const parsed = JSON.parse(model.getValue());
-          if (parsed.type === "AdaptiveCard") {
-            model.setValue(jsonStr);
-            return true;
-          }
-        } catch (e) { /* skip */ }
-      }
-      // If no AC model found, set the first model
-      if (models.length > 0) {
-        models[0].setValue(jsonStr);
-        return true;
-      }
-    }
-    // Try textarea fallback
-    const textareas = document.querySelectorAll("textarea");
-    for (const ta of textareas) {
-      try {
-        JSON.parse(ta.value);
-        ta.value = jsonStr;
-        ta.dispatchEvent(new Event("input", { bubbles: true }));
-        ta.dispatchEvent(new Event("change", { bubbles: true }));
-        return true;
-      } catch (e) { /* skip */ }
-    }
-    return false;
+    return new Promise((resolve) => {
+      const handler = (e) => {
+        if (e.data && e.data.source === 'ac-ai-builder-response' && e.data.action === 'setCard') {
+          window.removeEventListener('message', handler);
+          resolve(true);
+        }
+      };
+      window.addEventListener('message', handler);
+      window.postMessage({ source: 'ac-ai-builder', action: 'setCard', data: jsonStr }, '*');
+      setTimeout(() => { window.removeEventListener('message', handler); resolve(false); }, 1000);
+    });
   }
 
   // ─── UI Construction ──────────────────────────────────────────────────────────
@@ -398,8 +415,8 @@
   });
 
   // Validate current card in Designer
-  document.getElementById("ac-ai-validate").addEventListener("click", () => {
-    const raw = getDesignerCardJson();
+  document.getElementById("ac-ai-validate").addEventListener("click", async () => {
+    const raw = await getDesignerCardJson();
     if (!raw) { showStatus("No Adaptive Card found in Designer editor", "error"); return; }
     try {
       const card = JSON.parse(raw);
@@ -419,8 +436,8 @@
   });
 
   // Optimize current card
-  document.getElementById("ac-ai-optimize").addEventListener("click", () => {
-    const raw = getDesignerCardJson();
+  document.getElementById("ac-ai-optimize").addEventListener("click", async () => {
+    const raw = await getDesignerCardJson();
     if (!raw) { showStatus("No Adaptive Card found in Designer editor", "error"); return; }
     try {
       const card = JSON.parse(raw);
@@ -458,12 +475,12 @@
   });
 
   // Load into Designer
-  document.getElementById("ac-ai-load").addEventListener("click", () => {
+  document.getElementById("ac-ai-load").addEventListener("click", async () => {
     const json = document.getElementById("ac-ai-output").value.trim();
     if (!json) { showStatus("No card to load — generate one first", "error"); return; }
     try {
       JSON.parse(json); // validate
-      if (setDesignerCardJson(json)) {
+      if (await setDesignerCardJson(json)) {
         showStatus("Card loaded into Designer!", "success");
       } else {
         showStatus("Could not find Designer editor to inject into. Try copying instead.", "error");

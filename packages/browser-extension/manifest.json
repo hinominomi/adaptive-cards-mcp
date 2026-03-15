@@ -3,7 +3,7 @@
   "name": "Adaptive Cards AI Builder",
   "version": "1.0.0",
   "description": "AI-powered Adaptive Card generation panel for the Adaptive Cards Designer",
-  "permissions": ["activeTab", "storage"],
+  "permissions": ["activeTab"],
   "content_scripts": [
     {
       "matches": [
