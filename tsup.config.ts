@@ -1,4 +1,5 @@
 import { defineConfig } from "tsup";
+import { writeFileSync, readFileSync } from "fs";
 
 export default defineConfig({
   entry: {
@@ -12,7 +13,12 @@ export default defineConfig({
   dts: true,
   splitting: false,
   shims: true,
-  banner: {
-    js: "#!/usr/bin/env node",
+  onSuccess: async () => {
+    // Add shebang only to server.js for CLI usage
+    const serverPath = "dist/server.js";
+    const content = readFileSync(serverPath, "utf-8");
+    if (!content.startsWith("#!/")) {
+      writeFileSync(serverPath, "#!/usr/bin/env node\n" + content);
+    }
   },
 });

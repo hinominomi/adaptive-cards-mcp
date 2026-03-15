@@ -44,6 +44,11 @@
     "type": "git",
     "url": "https://github.com/VikrantSingh01/adaptive-cards-ai-builder.git"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=20.0.0"
   },

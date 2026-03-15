@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Adaptive Cards AI Builder — MCP Server
  *
@@ -201,9 +200,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
+    // MCP clients may send JSON fields as strings — parse them
+    const parsed = { ...args } as Record<string, unknown>;
+    for (const key of ["card", "data"]) {
+      if (typeof parsed[key] === "string") {
+        try {
+          parsed[key] = JSON.parse(parsed[key] as string);
+        } catch {
+          // Leave as string (e.g., CSV data)
+        }
+      }
+    }
+
     switch (name) {
       case "generate_card": {
-        const result = await handleGenerateCard(args as any);
+        const result = await handleGenerateCard(parsed as any);
         return {
           content: [
             {
@@ -215,7 +226,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "validate_card": {
-        const result = handleValidateCard(args as any);
+        const result = handleValidateCard(parsed as any);
         return {
           content: [
             {
@@ -227,7 +238,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "data_to_card": {
-        const result = await handleDataToCard(args as any);
+        const result = await handleDataToCard(parsed as any);
         return {
           content: [
             {
