@@ -33,7 +33,7 @@ Then open the folder in VS Code and press **F5** to launch the Extension Develop
 
 ```bash
 git clone https://github.com/VikrantSingh01/adaptive-cards-mcp.git
-cd adaptive-cards-ai-builder/packages/vscode-extension
+cd adaptive-cards-mcp/packages/vscode-extension
 npm install
 npm run compile
 ```
@@ -42,7 +42,7 @@ npm run compile
 
 ```bash
 npm run package
-code --install-extension adaptive-cards-ai-builder-vscode-1.0.0.vsix
+code --install-extension adaptive-cards-ai-vscode-1.0.0.vsix
 ```
 
 ## Commands
@@ -75,7 +75,7 @@ Type any prefix in a `.json` file to insert:
 
 ## Powered By
 
-This extension uses [adaptive-cards-ai-builder](https://github.com/VikrantSingh01/adaptive-cards-mcp/tree/main/packages/core) as its core engine — the same library available as an MCP server for Claude Code, Copilot, and Cursor.
+This extension uses [adaptive-cards-mcp](https://github.com/VikrantSingh01/adaptive-cards-mcp/tree/main/packages/core) as its core engine — the same library available as an MCP server for Claude Code, Copilot, and Cursor.
 
 ## Related
 

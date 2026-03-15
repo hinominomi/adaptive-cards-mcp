@@ -2,7 +2,7 @@
  * Adaptive Cards AI Builder — Library Entry Point
  *
  * Exports core functions for programmatic use:
- *   import { generateCard, validateCard, dataToCard } from 'adaptive-cards-ai-builder'
+ *   import { generateCard, validateCard, dataToCard } from 'adaptive-cards-mcp'
  */
 
 // Core modules

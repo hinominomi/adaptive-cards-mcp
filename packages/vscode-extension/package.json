@@ -1,5 +1,5 @@
 {
-  "name": "adaptive-cards-ai-builder-vscode",
+  "name": "adaptive-cards-ai-vscode",
   "displayName": "Adaptive Cards AI Builder",
   "description": "AI-powered Adaptive Card generation, preview, and validation for VS Code",
   "version": "1.0.0",

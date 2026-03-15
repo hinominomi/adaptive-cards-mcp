@@ -69,7 +69,7 @@ export async function registerGenerateCommand(context: vscode.ExtensionContext) 
 
         // Validate & post-process the Copilot output, or fall back to deterministic
         const { validateCardFull, optimizeCard, generateCard } = await import(
-          "adaptive-cards-ai-builder"
+          "adaptive-cards-mcp"
         );
 
         if (card) {

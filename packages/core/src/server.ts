@@ -5,8 +5,8 @@
  * schema-validated Adaptive Card v1.6 JSON.
  *
  * Usage:
- *   npx adaptive-cards-ai-builder          # Start MCP server
- *   ANTHROPIC_API_KEY=... npx adaptive-cards-ai-builder  # With LLM support
+ *   npx adaptive-cards-mcp          # Start MCP server
+ *   ANTHROPIC_API_KEY=... npx adaptive-cards-mcp  # With LLM support
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -30,7 +30,7 @@ initLLMFromEnv();
 // Create MCP server
 const server = new Server(
   {
-    name: "adaptive-cards-ai-builder",
+    name: "adaptive-cards-mcp",
     version: "1.0.0",
   },
   {

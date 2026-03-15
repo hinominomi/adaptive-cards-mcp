@@ -1,5 +1,5 @@
 {
-  "name": "adaptive-cards-ai-builder-monorepo",
+  "name": "adaptive-cards-mcp-monorepo",
   "private": true,
   "description": "AI-powered Adaptive Card generation — MCP server, VS Code extension, and browser extension",
   "scripts": {
