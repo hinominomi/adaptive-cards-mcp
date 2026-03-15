@@ -2,10 +2,6 @@
   "name": "adaptive-cards-ai-builder-monorepo",
   "private": true,
   "description": "AI-powered Adaptive Card generation — MCP server, VS Code extension, and browser extension",
-  "workspaces": [
-    "packages/core",
-    "packages/vscode-extension"
-  ],
   "scripts": {
     "build": "npm run build --workspace=packages/core",
     "test": "npm test --workspace=packages/core",

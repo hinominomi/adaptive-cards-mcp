@@ -110,7 +110,7 @@ export async function registerGenerateCommand(context: vscode.ExtensionContext) 
 
         // Show status
         const aiLabel =
-          generationMethod === "copilot" ? "AI-powered (Copilot)" : "Pattern-matching";
+          generationMethod === "pattern-matching" ? "Pattern-matching" : `AI (${generationMethod})`;
         const statusMsg = finalValidation.valid
           ? `[${aiLabel}] Card generated! Accessibility: ${finalValidation.accessibility.score}/100, Elements: ${finalValidation.stats.elementCount}`
           : `[${aiLabel}] Card generated with ${finalValidation.errors.filter((e) => e.severity === "error").length} issue(s)`;
