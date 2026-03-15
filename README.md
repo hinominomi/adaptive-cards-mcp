@@ -95,6 +95,20 @@ Then ask your AI assistant:
 - *"Convert this JSON data to an Adaptive Card table"*
 - *"Validate this card and check accessibility"*
 
+## Demo
+
+**7 MCP tools available in any AI assistant:**
+
+<p align="center">
+  <img src="media/mcp-tools.png" alt="7 MCP tools for Adaptive Cards" width="800">
+</p>
+
+**Live card generation — natural language to valid Adaptive Card JSON:**
+
+<p align="center">
+  <img src="media/mcp-generate.png" alt="generate_card producing a leave approval card for Teams" width="800">
+</p>
+
 ### npm Library
 
 ```typescript
