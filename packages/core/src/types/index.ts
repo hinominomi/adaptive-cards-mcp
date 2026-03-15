@@ -156,6 +156,15 @@ export interface GenerateCardOutput {
   sampleData?: Record<string, unknown>;
   validation: ValidationResult;
   designNotes: string;
+  references?: {
+    examples: Array<{ name: string; description: string; card: Record<string, unknown> }>;
+    hostConstraints?: {
+      maxVersion: string;
+      unsupportedElements: string[];
+      maxActions: number;
+      notes: string[];
+    };
+  };
 }
 
 export interface OptimizeCardOutput {

@@ -14,7 +14,14 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { readFileSync, readdirSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import { getAllHostSupport } from "./core/host-compatibility.js";
+import { getAllPatterns } from "./generation/layout-patterns.js";
 import { handleGenerateCard } from "./tools/generate-card.js";
 import { handleValidateCard } from "./tools/validate-card.js";
 import { handleDataToCard } from "./tools/data-to-card.js";
@@ -36,6 +43,7 @@ const server = new Server(
   {
     capabilities: {
       tools: {},
+      resources: {},
     },
   },
 );
@@ -335,6 +343,158 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       content: [{ type: "text" as const, text: `Error: ${message}` }],
       isError: true,
     };
+  }
+});
+
+// ─── Resource Definitions ────────────────────────────────────────────────────
+
+const RESOURCES = [
+  {
+    uri: "ac://schema/v1.6",
+    name: "Adaptive Cards v1.6 Schema",
+    description:
+      "Complete JSON Schema for Adaptive Cards v1.6 — element types, properties, enums, nesting rules",
+    mimeType: "application/json",
+  },
+  {
+    uri: "ac://hosts",
+    name: "Host Compatibility Matrix",
+    description:
+      "Supported versions, elements, actions, and constraints for Teams, Outlook, Webchat, Windows, Viva, Webex",
+    mimeType: "application/json",
+  },
+  {
+    uri: "ac://examples",
+    name: "Example Cards Catalog",
+    description:
+      "36 curated example Adaptive Cards covering approval, form, table, chart, notification, profile, and more",
+    mimeType: "application/json",
+  },
+  {
+    uri: "ac://patterns",
+    name: "Layout Pattern Guide",
+    description:
+      "11 canonical layout patterns with templates, keywords, and recommended elements",
+    mimeType: "application/json",
+  },
+];
+
+// ─── Resource Handlers ──────────────────────────────────────────────────────
+
+server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  return { resources: RESOURCES };
+});
+
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  const { uri } = request.params;
+
+  switch (uri) {
+    case "ac://schema/v1.6": {
+      const schemaPath = join(
+        dirname(fileURLToPath(import.meta.url)),
+        "data",
+        "schema.json",
+      );
+      const schema = readFileSync(schemaPath, "utf-8");
+      return {
+        contents: [{ uri, mimeType: "application/json", text: schema }],
+      };
+    }
+
+    case "ac://hosts": {
+      const hosts = getAllHostSupport();
+      return {
+        contents: [
+          { uri, mimeType: "application/json", text: JSON.stringify(hosts, null, 2) },
+        ],
+      };
+    }
+
+    case "ac://examples": {
+      const __dir = dirname(fileURLToPath(import.meta.url));
+      let examplesDir = join(__dir, "data", "examples");
+      try {
+        readdirSync(examplesDir);
+      } catch {
+        examplesDir = join(__dir, "..", "src", "data", "examples");
+      }
+
+      const catalog: Array<{
+        name: string;
+        description: string;
+        elementTypes: string[];
+      }> = [];
+
+      try {
+        const files = readdirSync(examplesDir).filter((f) => f.endsWith(".json"));
+        for (const file of files) {
+          try {
+            const content = JSON.parse(
+              readFileSync(join(examplesDir, file), "utf-8"),
+            );
+            // Extract first TextBlock text as description
+            let description = "";
+            const body = content.body ?? [];
+            for (const el of body) {
+              if (el.type === "TextBlock" && typeof el.text === "string") {
+                description = el.text;
+                break;
+              }
+            }
+            // Collect unique element types
+            const types = new Set<string>();
+            function collectTypes(obj: unknown): void {
+              if (Array.isArray(obj)) {
+                for (const item of obj) collectTypes(item);
+              } else if (obj && typeof obj === "object") {
+                const rec = obj as Record<string, unknown>;
+                if (typeof rec.type === "string") types.add(rec.type);
+                for (const val of Object.values(rec)) collectTypes(val);
+              }
+            }
+            collectTypes(body);
+
+            catalog.push({
+              name: file.replace(".json", ""),
+              description: description || file.replace(".json", "").replace(/[-_]/g, " "),
+              elementTypes: [...types],
+            });
+          } catch {
+            // Skip invalid files
+          }
+        }
+      } catch {
+        // No examples directory
+      }
+
+      return {
+        contents: [
+          { uri, mimeType: "application/json", text: JSON.stringify(catalog, null, 2) },
+        ],
+      };
+    }
+
+    case "ac://patterns": {
+      const patterns = getAllPatterns().map((p) => ({
+        name: p.name,
+        description: p.description,
+        intent: p.intent,
+        elements: p.elements,
+        dataShape: p.dataShape,
+      }));
+      return {
+        contents: [
+          {
+            uri,
+            mimeType: "application/json",
+            text: JSON.stringify(patterns, null, 2),
+          },
+        ],
+      };
+    }
+
+    default:
+      throw new Error(`Unknown resource URI: ${uri}`);
   }
 });
 

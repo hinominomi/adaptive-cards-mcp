@@ -7,6 +7,8 @@ import { assembleCard } from "../generation/card-assembler.js";
 import { isLLMAvailable, generateWithLLM } from "../generation/llm-client.js";
 import { buildSystemPrompt, buildUserPrompt } from "../generation/prompt-builder.js";
 import { handleValidateCard } from "./validate-card.js";
+import { selectExamples } from "../generation/example-selector.js";
+import { getHostSupport } from "../core/host-compatibility.js";
 
 /**
  * Generate an Adaptive Card from content description and optional data
@@ -52,10 +54,31 @@ export async function handleGenerateCard(
   // Validate the generated card
   const validation = handleValidateCard({ card, host });
 
+  // Add reference context for MCP clients
+  const examples = selectExamples(content, 3);
+  const references: GenerateCardOutput["references"] = {
+    examples: examples.map(ex => ({
+      name: ex.name,
+      description: `Example: ${ex.tags.slice(0, 3).join(", ")}`,
+      card: ex.content,
+    })),
+  };
+
+  if (host && host !== "generic") {
+    const hostInfo = getHostSupport(host);
+    references.hostConstraints = {
+      maxVersion: hostInfo.maxVersion,
+      unsupportedElements: hostInfo.unsupportedElements,
+      maxActions: hostInfo.maxActions,
+      notes: hostInfo.notes,
+    };
+  }
+
   return {
     card,
     validation,
     designNotes,
+    references,
   };
 }
 
