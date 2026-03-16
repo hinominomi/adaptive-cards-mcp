@@ -229,7 +229,8 @@ packages/core/src/
 ## Related Projects
 
 - [AdaptiveCards-Mobile](https://github.com/nicfera/AdaptiveCards-Mobile) — Cross-platform Adaptive Cards renderer
-- [Adaptive Cards Documentation](https://adaptivecards.io/) — Official docs and Designer
+- [Adaptive Cards Documentation](https://adaptivecards.microsoft.com/) — Official docs
+- [Adaptive Cards Designer](https://adaptivecards.microsoft.com/designer) — Interactive card designer
 - [Adaptive Cards Schema Explorer](https://adaptivecards.io/explorer/) — Interactive schema reference
 
 ## License

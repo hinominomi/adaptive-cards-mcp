@@ -184,6 +184,8 @@ npm run format        # Prettier
 - [Adaptive Cards MCP (monorepo)](https://github.com/VikrantSingh01/adaptive-cards-mcp)
 - [VS Code Extension](https://github.com/VikrantSingh01/adaptive-cards-ai-vscode)
 - [CHANGELOG](../../CHANGELOG.md)
+- [Adaptive Cards Documentation](https://adaptivecards.microsoft.com/) — Official docs
+- [Adaptive Cards Designer](https://adaptivecards.microsoft.com/designer) — Interactive card designer
 - [CONTRIBUTING](../../CONTRIBUTING.md)
 
 ## License
