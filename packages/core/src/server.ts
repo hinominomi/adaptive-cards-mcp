@@ -460,9 +460,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         // stdio mode: write a temp HTML file that auto-loads the designer with the card
         try {
           const card = r.card as Record<string, unknown>;
-          const previewPath = writePreviewFile(card);
-          r.preview = `file://${previewPath}`;
-        } catch {
+          r.preview = writePreviewFile(card); // Returns a file:// URL (cross-platform)
+        } catch (err) {
+          logger.warn("Failed to write preview file", { error: String(err) });
           r.preview = "https://adaptivecards.microsoft.com/designer";
         }
       }
@@ -1056,7 +1056,12 @@ async function startSSE() {
         return;
       }
       const html = generatePreviewHtml(card);
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.writeHead(200, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Security-Policy": "default-src 'self' 'unsafe-inline'; frame-src https://adaptivecards.microsoft.com",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+      });
       res.end(html);
       return;
     }
