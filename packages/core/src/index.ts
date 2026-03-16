@@ -34,5 +34,14 @@ export { selectExamples } from "./generation/example-selector.js";
 // LLM configuration
 export { configureLLM, isLLMAvailable, initLLMFromEnv } from "./generation/llm-client.js";
 
+// Utilities
+export { createLogger, initLogger } from "./utils/logger.js";
+export { checkInputSize, checkCardComplexity, checkDataSize, setInputLimits, getInputLimits } from "./utils/input-guards.js";
+export { checkRateLimit, setRateLimitEnabled, setToolRateLimit, registerToolIfMissing } from "./utils/rate-limiter.js";
+export type { BucketConfig } from "./utils/rate-limiter.js";
+export { storeCard, getCard, listCards, clearCards, resolveCardRef } from "./utils/card-store.js";
+export { configureAuth, validateAuth, getAuthMode, setBearerValidator } from "./utils/auth.js";
+export { initTelemetry, recordToolCall, getMetricsSnapshot, resetMetrics, isTelemetryEnabled } from "./utils/telemetry.js";
+
 // Types
 export type * from "./types/index.js";

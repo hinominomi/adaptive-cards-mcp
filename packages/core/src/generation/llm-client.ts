@@ -1,11 +1,19 @@
 /**
- * LLM Client — Optional Claude/OpenAI API integration for complex card generation
+ * LLM Client — Multi-provider LLM integration for card generation
  *
- * When an API key is configured, uses the LLM for creative card generation.
- * Falls back to deterministic pattern matching when no key is available.
+ * Supported providers:
+ *   - Anthropic (ANTHROPIC_API_KEY)
+ *   - OpenAI (OPENAI_API_KEY)
+ *   - Azure OpenAI (AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT)
+ *   - Ollama (OLLAMA_BASE_URL, default: http://localhost:11434)
  */
 
 import type { LLMConfig, LLMGenerateRequest, LLMGenerateResponse } from "../types/index.js";
+import { createLogger } from "../utils/logger.js";
+
+const logger = createLogger("llm");
+
+const DEFAULT_TIMEOUT_MS = 60_000; // 60 seconds
 
 let currentConfig: LLMConfig | null = null;
 
@@ -14,6 +22,7 @@ let currentConfig: LLMConfig | null = null;
  */
 export function configureLLM(config: LLMConfig): void {
   currentConfig = config;
+  logger.info("LLM configured", { provider: config.provider, model: config.model });
 }
 
 /**
@@ -45,6 +54,20 @@ export function initLLMFromEnv(): void {
     return;
   }
 
+  // Try Azure OpenAI
+  const azureKey = process.env.AZURE_OPENAI_API_KEY;
+  const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+  if (azureKey && azureEndpoint) {
+    configureLLM({
+      provider: "azure-openai",
+      apiKey: azureKey,
+      baseUrl: azureEndpoint,
+      model: process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o",
+      apiVersion: process.env.AZURE_OPENAI_API_VERSION || "2024-10-21",
+    });
+    return;
+  }
+
   // Try OpenAI
   const openaiKey = process.env.OPENAI_API_KEY;
   if (openaiKey) {
@@ -52,6 +75,18 @@ export function initLLMFromEnv(): void {
       provider: "openai",
       apiKey: openaiKey,
       model: process.env.OPENAI_MODEL || "gpt-4o",
+    });
+    return;
+  }
+
+  // Try Ollama (local, no API key required)
+  const ollamaUrl = process.env.OLLAMA_BASE_URL;
+  if (ollamaUrl) {
+    configureLLM({
+      provider: "ollama",
+      apiKey: "ollama", // Ollama doesn't need a real key
+      baseUrl: ollamaUrl,
+      model: process.env.OLLAMA_MODEL || "llama3.1",
     });
     return;
   }
@@ -64,13 +99,22 @@ export async function generateWithLLM(
   request: LLMGenerateRequest,
 ): Promise<LLMGenerateResponse> {
   if (!currentConfig) {
-    throw new Error("LLM not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY.");
+    throw new Error("LLM not configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, AZURE_OPENAI_API_KEY, or OLLAMA_BASE_URL.");
   }
 
-  if (currentConfig.provider === "anthropic") {
-    return callAnthropic(request);
-  } else {
-    return callOpenAI(request);
+  logger.debug("LLM request", { provider: currentConfig.provider, model: currentConfig.model });
+
+  switch (currentConfig.provider) {
+    case "anthropic":
+      return callAnthropic(request);
+    case "openai":
+      return callOpenAI(request);
+    case "azure-openai":
+      return callAzureOpenAI(request);
+    case "ollama":
+      return callOllama(request);
+    default:
+      throw new Error(`Unknown LLM provider: ${currentConfig.provider}`);
   }
 }
 
@@ -91,28 +135,34 @@ async function callAnthropic(
       system: request.systemPrompt,
       messages: [{ role: "user", content: request.userPrompt }],
     }),
+    signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Anthropic API error (${response.status}): ${error}`);
+    const errorText = await response.text();
+    throw new Error(`Anthropic API error (${response.status}): ${sanitizeApiError(errorText)}`);
   }
 
-  const data = (await response.json()) as {
-    content: Array<{ type: string; text: string }>;
-    usage: { input_tokens: number; output_tokens: number };
-  };
+  const data = await response.json() as Record<string, unknown>;
 
-  const textContent = data.content
+  // Validate response structure
+  if (!data.content || !Array.isArray(data.content)) {
+    throw new Error("Anthropic API returned unexpected response format (missing content array)");
+  }
+
+  const contentArr = data.content as Array<{ type: string; text: string }>;
+  const textContent = contentArr
     .filter((c) => c.type === "text")
     .map((c) => c.text)
     .join("");
 
+  const usage = data.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+
   return {
     content: textContent,
     usage: {
-      inputTokens: data.usage.input_tokens,
-      outputTokens: data.usage.output_tokens,
+      inputTokens: usage?.input_tokens || 0,
+      outputTokens: usage?.output_tokens || 0,
     },
   };
 }
@@ -135,23 +185,124 @@ async function callOpenAI(
         { role: "user", content: request.userPrompt },
       ],
     }),
+    signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`OpenAI API error (${response.status}): ${error}`);
+    const errorText = await response.text();
+    throw new Error(`OpenAI API error (${response.status}): ${sanitizeApiError(errorText)}`);
   }
 
-  const data = (await response.json()) as {
-    choices: Array<{ message: { content: string } }>;
-    usage: { prompt_tokens: number; completion_tokens: number };
-  };
+  const data = await response.json() as Record<string, unknown>;
+
+  // Validate response structure
+  const choices = data.choices as Array<{ message?: { content?: string } }> | undefined;
+  if (!choices || !Array.isArray(choices) || choices.length === 0) {
+    throw new Error("OpenAI API returned unexpected response format (missing choices)");
+  }
+
+  const usage = data.usage as { prompt_tokens?: number; completion_tokens?: number } | undefined;
 
   return {
-    content: data.choices[0]?.message?.content || "",
+    content: choices[0]?.message?.content || "",
     usage: {
-      inputTokens: data.usage.prompt_tokens,
-      outputTokens: data.usage.completion_tokens,
+      inputTokens: usage?.prompt_tokens || 0,
+      outputTokens: usage?.completion_tokens || 0,
     },
   };
+}
+
+async function callAzureOpenAI(
+  request: LLMGenerateRequest,
+): Promise<LLMGenerateResponse> {
+  const config = currentConfig!;
+  const baseUrl = config.baseUrl!.replace(/\/$/, "");
+  const deployment = config.model || "gpt-4o";
+  const apiVersion = config.apiVersion || "2024-10-21";
+  const url = `${baseUrl}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "api-key": config.apiKey,
+    },
+    body: JSON.stringify({
+      max_tokens: request.maxTokens || 4096,
+      messages: [
+        { role: "system", content: request.systemPrompt },
+        { role: "user", content: request.userPrompt },
+      ],
+    }),
+    signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Azure OpenAI API error (${response.status}): ${sanitizeApiError(errorText)}`);
+  }
+
+  const data = await response.json() as Record<string, unknown>;
+  const choices = data.choices as Array<{ message?: { content?: string } }> | undefined;
+  if (!choices || !Array.isArray(choices) || choices.length === 0) {
+    throw new Error("Azure OpenAI API returned unexpected response format");
+  }
+
+  const usage = data.usage as { prompt_tokens?: number; completion_tokens?: number } | undefined;
+
+  return {
+    content: choices[0]?.message?.content || "",
+    usage: {
+      inputTokens: usage?.prompt_tokens || 0,
+      outputTokens: usage?.completion_tokens || 0,
+    },
+  };
+}
+
+async function callOllama(
+  request: LLMGenerateRequest,
+): Promise<LLMGenerateResponse> {
+  const config = currentConfig!;
+  const baseUrl = (config.baseUrl || "http://localhost:11434").replace(/\/$/, "");
+  const url = `${baseUrl}/api/chat`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: config.model || "llama3.1",
+      stream: false,
+      messages: [
+        { role: "system", content: request.systemPrompt },
+        { role: "user", content: request.userPrompt },
+      ],
+    }),
+    signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS * 2), // Ollama may be slower (local inference)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Ollama API error (${response.status}): ${sanitizeApiError(errorText)}`);
+  }
+
+  const data = await response.json() as Record<string, unknown>;
+  const message = data.message as { content?: string } | undefined;
+
+  return {
+    content: message?.content || "",
+    usage: {
+      inputTokens: (data.prompt_eval_count as number) || 0,
+      outputTokens: (data.eval_count as number) || 0,
+    },
+  };
+}
+
+/**
+ * Sanitize API error messages to avoid leaking sensitive information
+ */
+function sanitizeApiError(errorText: string): string {
+  // Truncate long error messages
+  const truncated = errorText.length > 500 ? errorText.slice(0, 500) + "..." : errorText;
+  // Redact anything that looks like a key/token
+  return truncated.replace(/(?:sk-|key-|Bearer\s+)\S+/gi, "[REDACTED]");
 }

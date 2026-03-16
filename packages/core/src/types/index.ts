@@ -115,6 +115,10 @@ export interface ValidationError {
   message: string;
   severity: "error" | "warning" | "info";
   rule: string;
+  suggestedFix?: {
+    description: string;
+    patch?: Record<string, unknown>;
+  };
 }
 
 export interface AccessibilityReport {
@@ -152,6 +156,7 @@ export interface ValidationResult {
 
 export interface GenerateCardOutput {
   card: Record<string, unknown>;
+  cardId?: string;
   template?: Record<string, unknown>;
   sampleData?: Record<string, unknown>;
   validation: ValidationResult;
@@ -231,10 +236,44 @@ export interface LayoutPattern {
 
 // ─── LLM Client Types ────────────────────────────────────────────────────────
 
+// ─── Compound Workflow Types ─────────────────────────────────────────────────
+
+export interface CardWorkflowInput {
+  steps: Array<{
+    tool: "generate" | "validate" | "optimize" | "template" | "transform";
+    params?: Record<string, unknown>;
+  }>;
+  content?: string;
+  data?: Record<string, unknown> | string;
+  host?: HostApp;
+  version?: string;
+}
+
+export interface CardWorkflowOutput {
+  card: Record<string, unknown>;
+  cardId?: string;
+  validation?: ValidationResult;
+  stepsCompleted: string[];
+  designNotes: string;
+}
+
+export interface GenerateAndValidateInput {
+  content: string;
+  data?: Record<string, unknown> | string;
+  host?: HostApp;
+  intent?: CardIntent;
+  version?: string;
+  optimizeGoals?: OptimizationGoal[];
+}
+
+// ─── LLM Client Types ────────────────────────────────────────────────────────
+
 export interface LLMConfig {
-  provider: "anthropic" | "openai";
+  provider: "anthropic" | "openai" | "azure-openai" | "ollama";
   apiKey: string;
   model?: string;
+  baseUrl?: string;
+  apiVersion?: string;
 }
 
 export interface LLMGenerateRequest {
