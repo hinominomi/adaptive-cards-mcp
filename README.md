@@ -35,7 +35,16 @@ See the full [CHANGELOG](CHANGELOG.md) for details.
 
 ## Quick Start
 
-### MCP Server Setup
+```bash
+npm install adaptive-cards-mcp
+```
+
+Or run directly as an MCP server:
+```bash
+npx adaptive-cards-mcp
+```
+
+### MCP Client Setup
 
 **Claude Code:**
 ```bash

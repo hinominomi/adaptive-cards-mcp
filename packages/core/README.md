@@ -14,6 +14,17 @@ The world's first MCP server for Adaptive Cards — 9 tools, 3 prompts, 924 test
 
 ## Install
 
+```bash
+npm install adaptive-cards-mcp
+```
+
+Or run directly as an MCP server:
+```bash
+npx adaptive-cards-mcp
+```
+
+### MCP Client Setup
+
 **Claude Code:**
 ```bash
 claude mcp add adaptive-cards-mcp -- npx adaptive-cards-mcp
@@ -35,11 +46,6 @@ TRANSPORT=sse PORT=3001 npx adaptive-cards-mcp
 
 # With authentication
 TRANSPORT=sse MCP_API_KEY=your-secret npx adaptive-cards-mcp
-```
-
-**npm library:**
-```bash
-npm install adaptive-cards-mcp
 ```
 
 ## MCP Tools (9)
