@@ -7,28 +7,28 @@ import { recordToolCall, getMetricsSnapshot, resetMetrics, initTelemetry } from 
 describe("Telemetry", () => {
   const originalEnv = process.env;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     process.env = { ...originalEnv };
     resetMetrics();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     process.env = originalEnv;
-    initTelemetry();
+    await initTelemetry();
   });
 
-  it("should not record when disabled", () => {
+  it("should not record when disabled", async () => {
     process.env.MCP_TELEMETRY = "false";
-    initTelemetry();
+    await initTelemetry();
 
     recordToolCall("test_tool", 100);
     const snapshot = getMetricsSnapshot() as { tools: Record<string, unknown> };
     expect(Object.keys(snapshot.tools)).toHaveLength(0);
   });
 
-  it("should record tool calls when enabled", () => {
+  it("should record tool calls when enabled", async () => {
     process.env.MCP_TELEMETRY = "true";
-    initTelemetry();
+    await initTelemetry();
 
     recordToolCall("generate_card", 500, false, 2000);
     recordToolCall("generate_card", 300, false, 1500);
@@ -44,9 +44,9 @@ describe("Telemetry", () => {
     expect(snapshot.tools.validate_card.callCount).toBe(1);
   });
 
-  it("should reset metrics", () => {
+  it("should reset metrics", async () => {
     process.env.MCP_TELEMETRY = "true";
-    initTelemetry();
+    await initTelemetry();
 
     recordToolCall("test_tool", 100);
     const snapshot1 = getMetricsSnapshot() as { tools: Record<string, unknown> };

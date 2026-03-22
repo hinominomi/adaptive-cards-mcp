@@ -8,6 +8,7 @@ import { isLLMAvailable, generateWithLLM } from "../generation/llm-client.js";
 import { buildSystemPrompt, buildUserPrompt } from "../generation/prompt-builder.js";
 import { handleValidateCard } from "./validate-card.js";
 import { selectExamples } from "../generation/example-selector.js";
+import { queueEvent } from "../utils/telemetry-remote.js";
 import { getHostSupport } from "../core/host-compatibility.js";
 
 /**
@@ -29,6 +30,7 @@ export async function handleGenerateCard(
       designNotes = result.designNotes;
     } catch (err) {
       // Fallback to deterministic generation
+      queueEvent("llm_fallback", { reason: err instanceof Error ? err.message : "unknown", tool: "generate_card" });
       card = assembleCard({
         content,
         data: data as unknown,

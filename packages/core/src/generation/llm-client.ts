@@ -10,8 +10,16 @@
 
 import type { LLMConfig, LLMGenerateRequest, LLMGenerateResponse } from "../types/index.js";
 import { createLogger } from "../utils/logger.js";
+import { queueEvent } from "../utils/telemetry-remote.js";
 
 const logger = createLogger("llm");
+
+function classifyApiError(status: number): string {
+  if (status === 401 || status === 403) return "authentication";
+  if (status === 429) return "rate_limit";
+  if (status >= 500) return "server_error";
+  return "client_error";
+}
 
 const DEFAULT_TIMEOUT_MS = 60_000; // 60 seconds
 
@@ -140,6 +148,7 @@ async function callAnthropic(
 
   if (!response.ok) {
     const errorText = await response.text();
+    queueEvent("llm_api_error", { provider: "anthropic", status_code: response.status, error_type: classifyApiError(response.status) });
     throw new Error(`Anthropic API error (${response.status}): ${sanitizeApiError(errorText)}`);
   }
 
@@ -190,6 +199,7 @@ async function callOpenAI(
 
   if (!response.ok) {
     const errorText = await response.text();
+    queueEvent("llm_api_error", { provider: "openai", status_code: response.status, error_type: classifyApiError(response.status) });
     throw new Error(`OpenAI API error (${response.status}): ${sanitizeApiError(errorText)}`);
   }
 
@@ -239,6 +249,7 @@ async function callAzureOpenAI(
 
   if (!response.ok) {
     const errorText = await response.text();
+    queueEvent("llm_api_error", { provider: "azure-openai", status_code: response.status, error_type: classifyApiError(response.status) });
     throw new Error(`Azure OpenAI API error (${response.status}): ${sanitizeApiError(errorText)}`);
   }
 
@@ -282,6 +293,7 @@ async function callOllama(
 
   if (!response.ok) {
     const errorText = await response.text();
+    queueEvent("llm_api_error", { provider: "ollama", status_code: response.status, error_type: classifyApiError(response.status) });
     throw new Error(`Ollama API error (${response.status}): ${sanitizeApiError(errorText)}`);
   }
 

@@ -1,11 +1,13 @@
 /**
- * Telemetry — Opt-in metrics collection via OpenTelemetry-compatible interface
+ * Telemetry — Usage metrics collection with optional remote reporting
  *
- * Enable via: MCP_TELEMETRY=true
+ * Opt-in: MCP_TELEMETRY=true or ~/.adaptive-cards-mcp/config.json
  *
- * This provides a lightweight metrics interface. For full OpenTelemetry support,
- * connect an OTel collector externally.
+ * Local metrics are always available via getMetricsSnapshot().
+ * Remote reporting to PostHog is handled by telemetry-remote.ts.
  */
+
+import { queueEvent } from "./telemetry-remote.js";
 
 interface ToolMetrics {
   callCount: number;
@@ -44,8 +46,9 @@ const session: SessionInfo = {
 /**
  * Initialize telemetry from environment
  */
-export function initTelemetry(): void {
-  telemetryEnabled = process.env.MCP_TELEMETRY === "true";
+export async function initTelemetry(): Promise<void> {
+  const { checkTelemetryConsent } = await import("./telemetry-consent.js");
+  telemetryEnabled = checkTelemetryConsent();
 }
 
 /**
@@ -62,6 +65,13 @@ export function recordSessionStart(version: string, transport: string): void {
   session.startedAt = Date.now();
   session.version = version;
   session.transport = transport;
+
+  queueEvent("session_start", {
+    version,
+    transport,
+    platform: session.platform,
+    nodeVersion: session.nodeVersion,
+  });
 }
 
 /**
@@ -98,6 +108,8 @@ export function recordToolCall(
   m.lastCallAt = Date.now();
   if (error) m.errorCount++;
   if (outputBytes) m.totalOutputBytes += outputBytes;
+
+  queueEvent("tool_call", { tool, durationMs, error: !!error, outputBytes: outputBytes ?? 0 });
 }
 
 /**
@@ -130,6 +142,28 @@ export function getMetricsSnapshot(): Record<string, unknown> {
     },
     tools,
   };
+}
+
+/**
+ * Record session end with summary metrics for remote reporting
+ */
+export function recordSessionEnd(): void {
+  if (!telemetryEnabled) return;
+
+  const snapshot = getMetricsSnapshot() as { session: Record<string, unknown>; tools: Record<string, unknown> };
+  const toolBreakdown: Record<string, number> = {};
+  for (const [tool, m] of metrics) {
+    toolBreakdown[tool] = m.callCount;
+  }
+
+  queueEvent("session_end", {
+    uptimeSeconds: snapshot.session.uptimeSeconds,
+    totalRequests: session.totalRequests,
+    totalErrors: session.totalErrors,
+    toolBreakdown,
+    hostsUsed: Array.from(session.hostsUsed),
+    intentsUsed: Array.from(session.intentsUsed),
+  });
 }
 
 /**

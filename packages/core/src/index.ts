@@ -42,7 +42,8 @@ export type { BucketConfig } from "./utils/rate-limiter.js";
 export { storeCard, getCard, listCards, clearCards, resolveCardRef } from "./utils/card-store.js";
 export { configureAuth, validateAuth, getAuthMode, setBearerValidator } from "./utils/auth.js";
 export { generatePreviewHtml, writePreviewFile } from "./utils/preview.js";
-export { initTelemetry, recordToolCall, getMetricsSnapshot, resetMetrics, isTelemetryEnabled } from "./utils/telemetry.js";
+export { initTelemetry, recordToolCall, recordSessionStart, recordSessionEnd, recordUsageContext, getMetricsSnapshot, resetMetrics, isTelemetryEnabled } from "./utils/telemetry.js";
+export { initRemoteReporting, shutdownReporting, queueEvent } from "./utils/telemetry-remote.js";
 
 // Types
 export type * from "./types/index.js";

@@ -6,9 +6,48 @@ import { AdaptiveCardCodeLensProvider } from "./codelens-provider";
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 
+const TELEMETRY_PROMPT_KEY = "adaptiveCards.telemetryPrompted";
+
+async function promptTelemetryConsent(context: vscode.ExtensionContext) {
+  const alreadyPrompted = context.globalState.get<boolean>(TELEMETRY_PROMPT_KEY);
+  if (alreadyPrompted) return;
+
+  const config = vscode.workspace.getConfiguration("adaptiveCards");
+  // If user already explicitly set it, don't prompt
+  const inspection = config.inspect<boolean>("telemetry");
+  if (inspection?.globalValue !== undefined || inspection?.workspaceValue !== undefined) {
+    await context.globalState.update(TELEMETRY_PROMPT_KEY, true);
+    return;
+  }
+
+  const choice = await vscode.window.showInformationMessage(
+    "Help improve Adaptive Cards MCP? Anonymous usage data (tool names, durations, error rates) will be collected. No card content or personal data is ever sent.",
+    "Yes, enable",
+    "No thanks",
+    "Learn more"
+  );
+
+  if (choice === "Yes, enable") {
+    await config.update("telemetry", true, vscode.ConfigurationTarget.Global);
+    vscode.window.showInformationMessage("Telemetry enabled. Thank you! You can change this anytime in Settings → Adaptive Cards → Telemetry.");
+  } else if (choice === "Learn more") {
+    vscode.env.openExternal(vscode.Uri.parse("https://github.com/VikrantSingh01/adaptive-cards-mcp#telemetry--privacy"));
+    // Don't mark as prompted so they get asked again next time
+    return;
+  } else {
+    // "No thanks" or dismissed
+    await config.update("telemetry", false, vscode.ConfigurationTarget.Global);
+  }
+
+  await context.globalState.update(TELEMETRY_PROMPT_KEY, true);
+}
+
 export function activate(context: vscode.ExtensionContext) {
   diagnosticCollection = vscode.languages.createDiagnosticCollection("adaptiveCards");
   context.subscriptions.push(diagnosticCollection);
+
+  // Prompt for telemetry consent on first activation
+  promptTelemetryConsent(context);
 
   // Register commands
   context.subscriptions.push(

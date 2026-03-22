@@ -56,9 +56,9 @@ initLogger();
 const logger = createLogger("server");
 initLLMFromEnv();
 
-// Telemetry (opt-in via MCP_TELEMETRY=true)
-import { initTelemetry, recordToolCall, recordSessionStart, recordUsageContext, getMetricsSnapshot, isTelemetryEnabled } from "./utils/telemetry.js";
-initTelemetry();
+// Telemetry (opt-in via MCP_TELEMETRY=true or ~/.adaptive-cards-mcp/config.json)
+import { initTelemetry, recordToolCall, recordSessionStart, recordSessionEnd, recordUsageContext, getMetricsSnapshot, isTelemetryEnabled } from "./utils/telemetry.js";
+import { initRemoteReporting, shutdownReporting, queueEvent } from "./utils/telemetry-remote.js";
 
 // Enable rate limiting if env var set
 if (process.env.MCP_RATE_LIMIT === "true") {
@@ -501,6 +501,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const elapsed = Date.now() - startTime;
     const message = error instanceof Error ? error.message : String(error);
     const stack = error instanceof Error ? error.stack : undefined;
+
+    // Track rate limit hits specifically
+    if (message.includes("Rate limit")) {
+      queueEvent("rate_limit_exceeded", { tool: name });
+    }
 
     // Structured error log with stack trace for debugging
     logger.error("Tool error", {
@@ -1084,6 +1089,8 @@ function loadExamplesCatalog(): Array<{ name: string; description: string; eleme
 // launched by a trusted client (Claude Code, Cursor, etc.). Auth is only
 // applied to the HTTP/SSE transport which is network-exposed.
 async function startStdio() {
+  await initTelemetry();
+  initRemoteReporting();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   recordSessionStart(PKG_VERSION, "stdio");
@@ -1100,6 +1107,8 @@ async function startStdio() {
 }
 
 async function startSSE() {
+  await initTelemetry();
+  initRemoteReporting();
   // Dynamic import to avoid pulling in http deps for stdio users
   const { createServer } = await import("node:http");
   const { SSEServerTransport } = await import("@modelcontextprotocol/sdk/server/sse.js");
@@ -1125,6 +1134,7 @@ async function startSSE() {
     if (!isPublicRoute) {
       const authResult = await validateAuth(req.headers.authorization);
       if (!authResult.authorized) {
+        queueEvent("auth_failure", { reason: authResult.error || "unauthorized", path: req.url });
         res.writeHead(401, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: authResult.error }));
         return;
@@ -1256,6 +1266,8 @@ function setupShutdownHandlers() {
       // Already closed
     }
     clearCards(); // Then clean up card store
+    recordSessionEnd();
+    await shutdownReporting(); // Flush remaining telemetry events
     process.exit(0);
   };
 

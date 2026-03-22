@@ -111,6 +111,11 @@
           "type": "string",
           "default": "",
           "description": "OpenAI API key for GPT-powered generation (only used when aiProvider is 'openai')"
+        },
+        "adaptiveCards.telemetry": {
+          "type": "boolean",
+          "default": false,
+          "description": "Help improve Adaptive Cards MCP by sending anonymous usage data (tool names, durations, error rates). No card content or personal data is ever sent."
         }
       }
     }
